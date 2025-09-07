@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador de Dias</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+        }
+        .timer {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #e74c3c;
+            font-family: monospace;
+        }
+        .actions button {
+            margin-left: 5px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+        }
+        .reset {
+            background-color: #f39c12;
+        }
+        .reset:hover {
+            background-color: #e67e22;
+        }
+        .delete {
+            background-color: #e74c3c;
+        }
+        .delete:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <h1>Contador de Dias</h1>
+    <div class="container">
+        <input type="text" id="challengeInput" placeholder="Ej: Sin banarme, Sin fumar..." />
+        <button onclick="addChallenge()">Anadir Reto</button>
+
+        <h2>Mis Retos Activos</h2>
+        <div id="challengesList"></div>
+    </div>
+
+    <script>
+        let challenges = JSON.parse(localStorage.getItem('challenges')) || [];
+        let timers = {};
+
+        function saveChallenges() {
+            localStorage.setItem('challenges', JSON.stringify(challenges));
+        }
+
+        function addChallenge() {
+            const input = document.getElementById('challengeInput');
+            const text = input.value.trim();
+            if (!text) return alert("Escribe un reto valido");
+
+            const newChallenge = {
+                id: Date.now(),
+                name: text,
+                startDate: new Date().toISOString()
+            };
+
+            challenges.push(newChallenge);
+            saveChallenges();
+            input.value = '';
+            renderChallenges();
+        }
+
+        function deleteChallenge(id) {
+            challenges = challenges.filter(c => c.id !== id);
+            saveChallenges();
+            clearInterval(timers[id]);
+            delete timers[id];
+            renderChallenges();
+        }
+
+        function resetChallenge(id) {
+            const challenge = challenges.find(c => c.id === id);
+            if (challenge) {
+                challenge.startDate = new Date().toISOString();
+                saveChallenges();
+                renderChallenges();
+            }
+        }
+
+        function getTimeElapsed(startDate) {
+            const start = new Date(startDate);
+            const now = new Date();
+            let diff = now - start;
+
+            if (diff < 0) diff = 0;
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            diff -= days * (1000 * 60 * 60 * 24);
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            diff -= hours * (1000 * 60 * 60);
+
+            const minutes = Math.floor(diff / (1000 * 60));
+            diff -= minutes * (1000 * 60);
+
+            const seconds = Math.floor(diff / 1000);
+
+            return { days, hours, minutes, seconds };
+        }
+
+        function formatTime(time) {
+            const { days, hours, minutes, seconds } = time;
+            return `${days} dia${days !== 1 ? 's' : ''}, ${hours} hora${hours !== 1 ? 's' : ''}, ${minutes} minuto${minutes !== 1 ? 's' : ''}, ${seconds} segundo${seconds !== 1 ? 's' : ''}`;
+        }
+
+        function renderChallenges() {
+            const list = document.getElementById('challengesList');
+            list.innerHTML = '';
+
+            if (challenges.length === 0) {
+                list.innerHTML = '<p>No tienes retos activos. Anade uno!</p>';
+                return;
+            }
+
+            challenges.forEach(challenge => {
+                const time = getTimeElapsed(challenge.startDate);
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.id = `challenge-${challenge.id}`;
+                item.innerHTML = `
+                    <div>
+                        <strong>${challenge.name}</strong><br>
+                        <span class="timer" id="timer-${challenge.id}">?? ${formatTime(time)}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="reset" onclick="resetChallenge(${challenge.id})">Reiniciar</button>
+                        <button class="delete" onclick="deleteChallenge(${challenge.id})">Eliminar</button>
+                    </div>
+                `;
+                list.appendChild(item);
+
+                // Actualizar cada segundo
+                if (timers[challenge.id]) clearInterval(timers[challenge.id]);
+                timers[challenge.id] = setInterval(() => {
+                    const timerEl = document.getElementById(`timer-${challenge.id}`);
+                    if (timerEl) {
+                        const updatedTime = getTimeElapsed(challenge.startDate);
+                        timerEl.textContent = `?? ${formatTime(updatedTime)}`;
+                    } else {
+                        clearInterval(timers[challenge.id]);
+                        delete timers[challenge.id];
+                    }
+                }, 1000);
+            });
+        }
+
+        // Inicializar
+        renderChallenges();
+    </script>
+</body>
+</html>
